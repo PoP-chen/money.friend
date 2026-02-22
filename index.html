@@ -12,7 +12,8 @@
         .card { box-shadow: 0 4px 6px rgba(0,0,0,0.1); border-radius: 12px; }
         #app-container { max-width: 800px; margin: 0 auto; padding: 20px; }
         #calendar { background: white; padding: 15px; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
-        .table-responsive { border-radius: 8px; overflow: hidden; }
+        /* 這裡修正了手機版無法滑動的問題！ */
+        .table-responsive { border-radius: 8px; overflow-x: auto; -webkit-overflow-scrolling: touch; }
     </style>
 </head>
 <body>
@@ -88,15 +89,15 @@
 
             <div class="tab-pane fade card p-4" id="view-debt" role="tabpanel">
                 <h4>目前結算結果與還款</h4>
-                <p class="text-muted">系統已幫你們自動抵銷債務，可以直接在這裡操作還錢：</p>
+                <p class="text-muted">系統已幫你們自動抵銷債務，可以直接在這裡操作還錢（表格可左右滑動）：</p>
                 <div class="table-responsive border">
                     <table class="table table-hover align-middle mb-0">
                         <thead class="table-light">
                             <tr>
-                                <th>誰欠錢 (債務人)</th>
-                                <th>該給誰 (債主)</th>
-                                <th>應還金額</th>
-                                <th style="min-width: 250px;">還款操作</th>
+                                <th style="white-space: nowrap;">誰欠錢 (債務人)</th>
+                                <th style="white-space: nowrap;">該給誰 (債主)</th>
+                                <th style="white-space: nowrap;">應還金額</th>
+                                <th style="min-width: 260px;">還款操作</th>
                             </tr>
                         </thead>
                         <tbody id="debt-summary-tbody">
@@ -219,7 +220,6 @@
         }
     });
 
-    // 處理還款邏輯的函數
     window.processRepayment = async function(debtor, creditor, amountType, maxAmount, index) {
         let repayAmount = 0;
         
@@ -239,22 +239,20 @@
             return;
         }
 
-        // 取得當下時間
         const now = new Date();
         now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
         const localNow = now.toISOString().slice(0,16);
 
         try {
-            // 反向記帳：還錢的人(debtor)變成付出錢的人(payer)
             await addDoc(collection(db, "debts"), {
                 payer: debtor, 
                 borrower: creditor, 
                 amount: repayAmount,
                 datetime: localNow,
-                recordedBy: currentUser + " (系統還款操作)" // 標記這是還款產生的紀錄
+                recordedBy: currentUser + " (系統還款操作)" 
             });
             alert('還款成功！系統已更新餘額。');
-            loadDebts(); // 重新整理表格
+            loadDebts(); 
         } catch (e) {
             console.error("還款失敗: ", e);
             alert("還款紀錄失敗，請確認網路連線。");
@@ -283,7 +281,6 @@
                 }
             });
 
-            // ===== 渲染詳細歷史紀錄 =====
             allDebts.sort((a, b) => new Date(b.datetime) - new Date(a.datetime));
             historyList.innerHTML = '';
             if (allDebts.length === 0) {
@@ -293,8 +290,7 @@
                     const li = document.createElement('li');
                     li.className = 'list-group-item';
                     
-                    // 判斷是不是還款紀錄來改變顏色
-                    const isRepayment = debt.recordedBy.includes("(系統還款操作)");
+                    const isRepayment = debt.recordedBy && debt.recordedBy.includes("(系統還款操作)");
                     const actionText = isRepayment ? "還款給" : "幫";
                     const actionColor = isRepayment ? "text-success" : "text-danger";
                     const wordColor = isRepayment ? "text-success fw-bold" : "";
@@ -310,7 +306,6 @@
                 });
             }
 
-            // ===== 渲染自動抵銷結算表格 =====
             let creditors = [];
             let debtors = [];
             for (let user in balances) {
@@ -343,11 +338,11 @@
                 settlementData.forEach((item, index) => {
                     const tr = document.createElement('tr');
                     tr.innerHTML = `
-                        <td><strong>${item.debtor}</strong></td>
-                        <td><strong>${item.creditor}</strong></td>
-                        <td class="text-danger fw-bold fs-5">$${item.amount}</td>
+                        <td style="white-space: nowrap;"><strong>${item.debtor}</strong></td>
+                        <td style="white-space: nowrap;"><strong>${item.creditor}</strong></td>
+                        <td class="text-danger fw-bold fs-5" style="white-space: nowrap;">$${item.amount}</td>
                         <td>
-                            <div class="input-group input-group-sm">
+                            <div class="input-group input-group-sm flex-nowrap" style="min-width: 260px;">
                                 <input type="number" class="form-control" id="repay-input-${index}" placeholder="輸入金額" max="${item.amount}">
                                 <button class="btn btn-outline-primary" onclick="processRepayment('${item.debtor}', '${item.creditor}', 'partial', ${item.amount}, ${index})">部分還款</button>
                                 <button class="btn btn-success" onclick="processRepayment('${item.debtor}', '${item.creditor}', 'all', ${item.amount}, ${index})">一鍵還清</button>
