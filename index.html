@@ -117,23 +117,18 @@
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
     import { getFirestore, collection, addDoc, getDocs } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 
-    // === ⚠️ 請將這裡替換成你的 Firebase 設定 ⚠️ ===
     const firebaseConfig = {
-  apiKey: "AIzaSyDtACSJz8x65TwuH3lgD_4-_bokVOX3edQ",
-  authDomain: "wteu-3a1f4.firebaseapp.com",
-  projectId: "wteu-3a1f4",
-  storageBucket: "wteu-3a1f4.firebasestorage.app",
-  messagingSenderId: "134165572647",
-  appId: "1:134165572647:web:60b4bb8bac3a37bc057202"
-};
+        apiKey: "AIzaSyDtACSJz8x65TwuH3lgD_4-_bokVOX3edQ",
+        authDomain: "wteu-3a1f4.firebaseapp.com",
+        projectId: "wteu-3a1f4",
+        storageBucket: "wteu-3a1f4.firebasestorage.app",
+        messagingSenderId: "134165572647",
+        appId: "1:134165572647:web:60b4bb8bac3a37bc057202"
+    };
 
-    // ===========================================
-
-    // 初始化 Firebase
     const app = initializeApp(firebaseConfig);
     const db = getFirestore(app);
 
-    // 固定的帳號密碼對應表
     const users = {
         "minn0213": "0213",
         "topyoung0610": "0610",
@@ -141,9 +136,8 @@
     };
     
     let currentUser = null;
-    let calendar; // 日曆實例
+    let calendar; 
 
-    // 登入邏輯
     document.getElementById('login-btn').addEventListener('click', () => {
         const user = document.getElementById('login-username').value.trim();
         const pass = document.getElementById('login-password').value.trim();
@@ -154,7 +148,6 @@
             document.getElementById('main-section').classList.remove('hidden');
             document.getElementById('welcome-msg').innerText = `歡迎，${user}！`;
             
-            // 登入後預設載入資料
             loadDebts();
             initCalendar();
         } else {
@@ -162,7 +155,6 @@
         }
     });
 
-    // 登出邏輯
     document.getElementById('logout-btn').addEventListener('click', () => {
         currentUser = null;
         document.getElementById('main-section').classList.add('hidden');
@@ -172,7 +164,6 @@
         document.getElementById('login-error').classList.add('hidden');
     });
 
-    // 1. 新增欠款邏輯
     document.getElementById('submit-debt-btn').addEventListener('click', async () => {
         const payer = document.getElementById('debt-payer').value;
         const borrower = document.getElementById('debt-borrower').value;
@@ -195,32 +186,29 @@
             alert('欠款紀錄成功！');
             document.getElementById('debt-amount').value = '';
             document.getElementById('debt-date').value = '';
-            loadDebts(); // 重新計算抵銷
+            loadDebts(); 
         } catch (e) {
             console.error("寫入錯誤: ", e);
             alert("寫入資料庫失敗，請確認 Firebase 設定。");
         }
     });
 
-    // 2. 自動抵銷與結算邏輯
     async function loadDebts() {
         const summaryList = document.getElementById('debt-summary-list');
         summaryList.innerHTML = '<li class="list-group-item text-center">正在計算中...</li>';
         
         try {
             const querySnapshot = await getDocs(collection(db, "debts"));
-            // 初始餘額為 0
             let balances = { "minn0213": 0, "topyoung0610": 0, "youyouyou.c": 0 };
             
             querySnapshot.forEach((doc) => {
                 const data = doc.data();
                 if(balances[data.payer] !== undefined && balances[data.borrower] !== undefined){
-                    balances[data.payer] += data.amount; // 墊錢的人餘額增加 (別人欠他)
-                    balances[data.borrower] -= data.amount; // 欠錢的人餘額減少 (他欠別人)
+                    balances[data.payer] += data.amount; 
+                    balances[data.borrower] -= data.amount; 
                 }
             });
 
-            // 分離債主與債務人
             let creditors = [];
             let debtors = [];
             for (let user in balances) {
@@ -228,7 +216,6 @@
                 else if (balances[user] < 0) debtors.push({ user, amount: Math.abs(balances[user]) });
             }
 
-            // 貪婪演算法進行抵銷結算
             let settlements = [];
             let i = 0, j = 0;
             while (i < creditors.length && j < debtors.length) {
@@ -247,7 +234,6 @@
                 if (debt.amount === 0) j++;
             }
 
-            // 更新畫面
             summaryList.innerHTML = '';
             if (settlements.length === 0) {
                 summaryList.innerHTML = '<li class="list-group-item text-center text-success">目前大家互不相欠！</li>';
@@ -263,10 +249,8 @@
             summaryList.innerHTML = '<li class="list-group-item text-center text-danger">讀取失敗，請確認資料庫權限。</li>';
         }
     }
-    // 點擊「總覽」分頁時重新抓取一次
     document.getElementById('view-debt-tab').addEventListener('click', loadDebts);
 
-    // 3. 紀錄飲食邏輯
     document.getElementById('submit-food-btn').addEventListener('click', async () => {
         const food = document.getElementById('food-name').value.trim();
         const time = document.getElementById('food-time').value;
@@ -285,14 +269,13 @@
             alert('飲食紀錄成功！');
             document.getElementById('food-name').value = '';
             document.getElementById('food-time').value = '';
-            loadFoodsToCalendar(); // 重新整理日曆
+            loadFoodsToCalendar(); 
         } catch (e) {
             console.error("寫入錯誤: ", e);
             alert("寫入資料庫失敗。");
         }
     });
 
-    // 4. 飲食日曆初始化與載入
     function initCalendar() {
         if (!calendar) {
             const calendarEl = document.getElementById('calendar');
@@ -304,7 +287,7 @@
                     center: 'title',
                     right: 'dayGridMonth,timeGridWeek,timeGridDay'
                 },
-                events: [] // 初始為空，等待 Firestore 讀取
+                events: [] 
             });
             calendar.render();
         }
@@ -330,14 +313,12 @@
         }
     }
 
-    // 修正 FullCalendar 在隱藏的 tab 中渲染大小跑掉的問題
     document.getElementById('calendar-tab').addEventListener('shown.bs.tab', () => {
         if (calendar) {
             calendar.render();
         }
     });
 
-    // 頁面載入時設定時間輸入框的預設值為現在
     window.onload = () => {
         const now = new Date();
         now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
