@@ -32,17 +32,8 @@
 
 <div id="app-container">
     <div id="main-section">
-        <div class="d-flex justify-content-between align-items-center mb-4 mt-2">
-            <h3 class="mb-0 text-primary fw-bold">好友記帳</h3>
-            <div class="d-flex align-items-center bg-white px-3 py-2 rounded shadow-sm">
-                <label class="text-nowrap me-2 mb-0 text-muted small">操作者：</label>
-                <select id="current-user-select" class="form-select form-select-sm w-auto fw-bold border-0 shadow-none p-0" style="cursor: pointer; outline: none;">
-                    <option value="minn0213">minn0213</option>
-                    <option value="topyoung0610">topyoung0610</option>
-                    <option value="youyouyou.c">youyouyou.c</option>
-                    <option value="iamfrank">iamfrank</option>
-                </select>
-            </div>
+        <div class="mb-4 mt-2 text-center">
+            <h3 class="mb-0 text-primary fw-bold">好友記帳與飲食日曆</h3>
         </div>
 
         <ul class="nav nav-tabs mb-4" id="myTab" role="tablist">
@@ -92,7 +83,7 @@
                     <label class="form-label">精確日期與時間</label>
                     <input type="datetime-local" id="debt-date" class="form-control">
                 </div>
-                <button id="submit-debt-btn" class="btn btn-success">送出紀錄</button>
+                <button id="submit-debt-btn" class="btn btn-success w-100">送出紀錄</button>
             </div>
 
             <div class="tab-pane fade card p-4" id="view-debt" role="tabpanel">
@@ -135,7 +126,7 @@
                     <label class="form-label">時間</label>
                     <input type="datetime-local" id="food-time" class="form-control">
                 </div>
-                <button id="submit-food-btn" class="btn btn-warning">新增飲食紀錄</button>
+                <button id="submit-food-btn" class="btn btn-warning w-100">新增飲食紀錄</button>
             </div>
 
             <div class="tab-pane fade" id="food-calendar" role="tabpanel">
@@ -163,15 +154,9 @@
 
     const app = initializeApp(firebaseConfig);
     const db = getFirestore(app);
-
-    // 取得當前的操作者
-    let currentUser = document.getElementById('current-user-select').value;
-    document.getElementById('current-user-select').addEventListener('change', (e) => {
-        currentUser = e.target.value;
-    });
-
     let calendar; 
 
+    // 新增欠款
     document.getElementById('submit-debt-btn').addEventListener('click', async () => {
         const payer = document.getElementById('debt-payer').value;
         const borrower = document.getElementById('debt-borrower').value;
@@ -189,11 +174,10 @@
                 borrower: borrower,
                 amount: amount,
                 datetime: date,
-                recordedBy: currentUser
+                recordedBy: "共同操作" 
             });
             alert('欠款紀錄成功！');
             document.getElementById('debt-amount').value = '';
-            // 不清空日期，方便連續記帳
             loadDebts(); 
         } catch (e) {
             console.error("寫入錯誤: ", e);
@@ -201,6 +185,7 @@
         }
     });
 
+    // 處理還款
     window.processRepayment = async function(debtor, creditor, amountType, maxAmount, index) {
         let repayAmount = 0;
         
@@ -230,7 +215,7 @@
                 borrower: creditor, 
                 amount: repayAmount,
                 datetime: localNow,
-                recordedBy: currentUser + " (系統還款操作)" 
+                recordedBy: "系統還款操作" 
             });
             alert('還款成功！系統已更新餘額。');
             loadDebts(); 
@@ -240,6 +225,7 @@
         }
     };
 
+    // 讀取欠款資料與計算
     async function loadDebts() {
         const tbody = document.getElementById('debt-summary-tbody');
         const historyList = document.getElementById('debt-history-list'); 
@@ -249,7 +235,7 @@
         
         try {
             const querySnapshot = await getDocs(collection(db, "debts"));
-            // 加入 iamfrank 到初始化餘額中
+            // 包含 iamfrank 的初始餘額
             let balances = { "minn0213": 0, "topyoung0610": 0, "youyouyou.c": 0, "iamfrank": 0 };
             let allDebts = []; 
             
@@ -257,11 +243,11 @@
                 const data = doc.data();
                 allDebts.push(data); 
                 
-                // 確保舊資料即使沒有該使用者也不會出錯
                 if(balances[data.payer] !== undefined) balances[data.payer] += data.amount; 
                 if(balances[data.borrower] !== undefined) balances[data.borrower] -= data.amount; 
             });
 
+            // 渲染歷史紀錄
             allDebts.sort((a, b) => new Date(b.datetime) - new Date(a.datetime));
             historyList.innerHTML = '';
             if (allDebts.length === 0) {
@@ -271,7 +257,7 @@
                     const li = document.createElement('li');
                     li.className = 'list-group-item';
                     
-                    const isRepayment = debt.recordedBy && debt.recordedBy.includes("(系統還款操作)");
+                    const isRepayment = debt.recordedBy && debt.recordedBy.includes("系統還款操作");
                     const actionText = isRepayment ? "還款給" : "幫";
                     const actionColor = isRepayment ? "text-success" : "text-danger";
                     const wordColor = isRepayment ? "text-success fw-bold" : "";
@@ -281,12 +267,12 @@
                             <span class="${wordColor}"><strong><span class="text-primary">${debt.payer}</span> ${actionText} <span class="${actionColor}">${debt.borrower}</span> $${debt.amount}</strong></span>
                             <span class="badge bg-secondary">${debt.datetime.replace('T', ' ')}</span>
                         </div>
-                        <div class="text-muted small mt-1">紀錄者：${debt.recordedBy}</div>
                     `;
                     historyList.appendChild(li);
                 });
             }
 
+            // 計算最終結算
             let creditors = [];
             let debtors = [];
             for (let user in balances) {
@@ -339,10 +325,10 @@
         }
     }
     
-    // 監聽分頁切換，隨時更新資料
     document.getElementById('view-debt-tab').addEventListener('click', loadDebts);
     document.getElementById('history-debt-tab').addEventListener('click', loadDebts);
 
+    // 新增飲食紀錄 (不區分誰記的)
     document.getElementById('submit-food-btn').addEventListener('click', async () => {
         const food = document.getElementById('food-name').value.trim();
         const time = document.getElementById('food-time').value;
@@ -354,7 +340,6 @@
 
         try {
             await addDoc(collection(db, "foods"), {
-                user: currentUser, // 這裡會抓取右上角選單目前選的人
                 food: food,
                 datetime: time
             });
@@ -367,6 +352,7 @@
         }
     });
 
+    // 初始化與載入日曆
     function initCalendar() {
         if (!calendar) {
             const calendarEl = document.getElementById('calendar');
@@ -392,7 +378,7 @@
             querySnapshot.forEach((doc) => {
                 const data = doc.data();
                 events.push({
-                    title: `${data.user}: ${data.food}`,
+                    title: data.food, // 直接顯示食物名稱
                     start: data.datetime,
                     allDay: false
                 });
@@ -410,7 +396,7 @@
         }
     });
 
-    // 因為去除了登入，網頁一載入就直接讀取資料與日曆
+    // 網頁一載入就直接讀取
     window.onload = () => {
         const now = new Date();
         now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
