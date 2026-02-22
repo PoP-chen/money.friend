@@ -42,7 +42,10 @@
                 <button class="nav-link active" id="add-debt-tab" data-bs-toggle="tab" data-bs-target="#add-debt" type="button" role="tab">新增欠款</button>
             </li>
             <li class="nav-item" role="presentation">
-                <button class="nav-link" id="view-debt-tab" data-bs-toggle="tab" data-bs-target="#view-debt" type="button" role="tab">欠款總覽(自動抵銷)</button>
+                <button class="nav-link" id="view-debt-tab" data-bs-toggle="tab" data-bs-target="#view-debt" type="button" role="tab">欠款總覽(抵銷)</button>
+            </li>
+            <li class="nav-item" role="presentation">
+                <button class="nav-link" id="history-debt-tab" data-bs-toggle="tab" data-bs-target="#history-debt" type="button" role="tab">欠款詳細紀錄</button>
             </li>
             <li class="nav-item" role="presentation">
                 <button class="nav-link" id="add-food-tab" data-bs-toggle="tab" data-bs-target="#add-food" type="button" role="tab">今日吃什麼</button>
@@ -87,6 +90,14 @@
                 <p class="text-muted">系統已自動幫你們抵銷債務，以下是最終誰該給誰多少錢：</p>
                 <ul id="debt-summary-list" class="list-group">
                     <li class="list-group-item text-center">正在計算中...</li>
+                </ul>
+            </div>
+
+            <div class="tab-pane fade card p-4" id="history-debt" role="tabpanel">
+                <h4>所有欠款明細</h4>
+                <p class="text-muted">這裡顯示大家輸入的每一筆原始紀錄（由新到舊排）：</p>
+                <ul id="debt-history-list" class="list-group">
+                    <li class="list-group-item text-center">正在讀取中...</li>
                 </ul>
             </div>
 
@@ -195,20 +206,49 @@
 
     async function loadDebts() {
         const summaryList = document.getElementById('debt-summary-list');
+        const historyList = document.getElementById('debt-history-list'); // 抓取明細列表
+        
         summaryList.innerHTML = '<li class="list-group-item text-center">正在計算中...</li>';
+        historyList.innerHTML = '<li class="list-group-item text-center">正在讀取中...</li>';
         
         try {
             const querySnapshot = await getDocs(collection(db, "debts"));
             let balances = { "minn0213": 0, "topyoung0610": 0, "youyouyou.c": 0 };
+            let allDebts = []; // 用來存所有的明細
             
             querySnapshot.forEach((doc) => {
                 const data = doc.data();
+                allDebts.push(data); // 把每一筆資料存起來
+                
+                // 計算總餘額
                 if(balances[data.payer] !== undefined && balances[data.borrower] !== undefined){
                     balances[data.payer] += data.amount; 
                     balances[data.borrower] -= data.amount; 
                 }
             });
 
+            // ===== 渲染詳細歷史紀錄 =====
+            // 依照時間排序 (新的在最上面)
+            allDebts.sort((a, b) => new Date(b.datetime) - new Date(a.datetime));
+            historyList.innerHTML = '';
+            if (allDebts.length === 0) {
+                historyList.innerHTML = '<li class="list-group-item text-center text-muted">目前沒有任何欠款紀錄。</li>';
+            } else {
+                allDebts.forEach(debt => {
+                    const li = document.createElement('li');
+                    li.className = 'list-group-item';
+                    li.innerHTML = `
+                        <div class="d-flex justify-content-between align-items-center">
+                            <strong><span class="text-primary">${debt.payer}</span> 幫 <span class="text-danger">${debt.borrower}</span> 墊了 $${debt.amount}</strong>
+                            <span class="badge bg-secondary">${debt.datetime.replace('T', ' ')}</span>
+                        </div>
+                        <div class="text-muted small mt-1">由 ${debt.recordedBy} 新增</div>
+                    `;
+                    historyList.appendChild(li);
+                });
+            }
+
+            // ===== 渲染自動抵銷結算 =====
             let creditors = [];
             let debtors = [];
             for (let user in balances) {
@@ -247,9 +287,11 @@
             }
         } catch (e) {
             summaryList.innerHTML = '<li class="list-group-item text-center text-danger">讀取失敗，請確認資料庫權限。</li>';
+            historyList.innerHTML = '<li class="list-group-item text-center text-danger">讀取明細失敗。</li>';
         }
     }
     document.getElementById('view-debt-tab').addEventListener('click', loadDebts);
+    document.getElementById('history-debt-tab').addEventListener('click', loadDebts); // 點擊詳細紀錄時也更新
 
     document.getElementById('submit-food-btn').addEventListener('click', async () => {
         const food = document.getElementById('food-name').value.trim();
