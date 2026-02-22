@@ -12,6 +12,7 @@
         .card { box-shadow: 0 4px 6px rgba(0,0,0,0.1); border-radius: 12px; }
         #app-container { max-width: 800px; margin: 0 auto; padding: 20px; }
         #calendar { background: white; padding: 15px; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
+        .table-responsive { border-radius: 8px; overflow: hidden; }
     </style>
 </head>
 <body>
@@ -42,7 +43,7 @@
                 <button class="nav-link active" id="add-debt-tab" data-bs-toggle="tab" data-bs-target="#add-debt" type="button" role="tab">新增欠款</button>
             </li>
             <li class="nav-item" role="presentation">
-                <button class="nav-link" id="view-debt-tab" data-bs-toggle="tab" data-bs-target="#view-debt" type="button" role="tab">欠款總覽(抵銷)</button>
+                <button class="nav-link" id="view-debt-tab" data-bs-toggle="tab" data-bs-target="#view-debt" type="button" role="tab">欠款總覽(還款)</button>
             </li>
             <li class="nav-item" role="presentation">
                 <button class="nav-link" id="history-debt-tab" data-bs-toggle="tab" data-bs-target="#history-debt" type="button" role="tab">欠款詳細紀錄</button>
@@ -86,11 +87,25 @@
             </div>
 
             <div class="tab-pane fade card p-4" id="view-debt" role="tabpanel">
-                <h4>目前結算結果</h4>
-                <p class="text-muted">系統已自動幫你們抵銷債務，以下是最終誰該給誰多少錢：</p>
-                <ul id="debt-summary-list" class="list-group">
-                    <li class="list-group-item text-center">正在計算中...</li>
-                </ul>
+                <h4>目前結算結果與還款</h4>
+                <p class="text-muted">系統已幫你們自動抵銷債務，可以直接在這裡操作還錢：</p>
+                <div class="table-responsive border">
+                    <table class="table table-hover align-middle mb-0">
+                        <thead class="table-light">
+                            <tr>
+                                <th>誰欠錢 (債務人)</th>
+                                <th>該給誰 (債主)</th>
+                                <th>應還金額</th>
+                                <th style="min-width: 250px;">還款操作</th>
+                            </tr>
+                        </thead>
+                        <tbody id="debt-summary-tbody">
+                            <tr>
+                                <td colspan="4" class="text-center py-3">正在計算中...</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
             </div>
 
             <div class="tab-pane fade card p-4" id="history-debt" role="tabpanel">
@@ -204,23 +219,64 @@
         }
     });
 
-    async function loadDebts() {
-        const summaryList = document.getElementById('debt-summary-list');
-        const historyList = document.getElementById('debt-history-list'); // 抓取明細列表
+    // 處理還款邏輯的函數
+    window.processRepayment = async function(debtor, creditor, amountType, maxAmount, index) {
+        let repayAmount = 0;
         
-        summaryList.innerHTML = '<li class="list-group-item text-center">正在計算中...</li>';
+        if (amountType === 'all') {
+            repayAmount = parseFloat(maxAmount);
+        } else {
+            const inputVal = document.getElementById(`repay-input-${index}`).value;
+            repayAmount = parseFloat(inputVal);
+        }
+
+        if (!repayAmount || repayAmount <= 0 || repayAmount > maxAmount) {
+            alert(`請輸入有效的還款金額！(最多不能超過 $${maxAmount})`);
+            return;
+        }
+
+        if (!confirm(`確定要紀錄「${debtor}」還款 $${repayAmount} 給「${creditor}」嗎？`)) {
+            return;
+        }
+
+        // 取得當下時間
+        const now = new Date();
+        now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
+        const localNow = now.toISOString().slice(0,16);
+
+        try {
+            // 反向記帳：還錢的人(debtor)變成付出錢的人(payer)
+            await addDoc(collection(db, "debts"), {
+                payer: debtor, 
+                borrower: creditor, 
+                amount: repayAmount,
+                datetime: localNow,
+                recordedBy: currentUser + " (系統還款操作)" // 標記這是還款產生的紀錄
+            });
+            alert('還款成功！系統已更新餘額。');
+            loadDebts(); // 重新整理表格
+        } catch (e) {
+            console.error("還款失敗: ", e);
+            alert("還款紀錄失敗，請確認網路連線。");
+        }
+    };
+
+    async function loadDebts() {
+        const tbody = document.getElementById('debt-summary-tbody');
+        const historyList = document.getElementById('debt-history-list'); 
+        
+        tbody.innerHTML = '<tr><td colspan="4" class="text-center py-3">正在計算中...</td></tr>';
         historyList.innerHTML = '<li class="list-group-item text-center">正在讀取中...</li>';
         
         try {
             const querySnapshot = await getDocs(collection(db, "debts"));
             let balances = { "minn0213": 0, "topyoung0610": 0, "youyouyou.c": 0 };
-            let allDebts = []; // 用來存所有的明細
+            let allDebts = []; 
             
             querySnapshot.forEach((doc) => {
                 const data = doc.data();
-                allDebts.push(data); // 把每一筆資料存起來
+                allDebts.push(data); 
                 
-                // 計算總餘額
                 if(balances[data.payer] !== undefined && balances[data.borrower] !== undefined){
                     balances[data.payer] += data.amount; 
                     balances[data.borrower] -= data.amount; 
@@ -228,7 +284,6 @@
             });
 
             // ===== 渲染詳細歷史紀錄 =====
-            // 依照時間排序 (新的在最上面)
             allDebts.sort((a, b) => new Date(b.datetime) - new Date(a.datetime));
             historyList.innerHTML = '';
             if (allDebts.length === 0) {
@@ -237,18 +292,25 @@
                 allDebts.forEach(debt => {
                     const li = document.createElement('li');
                     li.className = 'list-group-item';
+                    
+                    // 判斷是不是還款紀錄來改變顏色
+                    const isRepayment = debt.recordedBy.includes("(系統還款操作)");
+                    const actionText = isRepayment ? "還款給" : "幫";
+                    const actionColor = isRepayment ? "text-success" : "text-danger";
+                    const wordColor = isRepayment ? "text-success fw-bold" : "";
+
                     li.innerHTML = `
                         <div class="d-flex justify-content-between align-items-center">
-                            <strong><span class="text-primary">${debt.payer}</span> 幫 <span class="text-danger">${debt.borrower}</span> 墊了 $${debt.amount}</strong>
+                            <span class="${wordColor}"><strong><span class="text-primary">${debt.payer}</span> ${actionText} <span class="${actionColor}">${debt.borrower}</span> $${debt.amount}</strong></span>
                             <span class="badge bg-secondary">${debt.datetime.replace('T', ' ')}</span>
                         </div>
-                        <div class="text-muted small mt-1">由 ${debt.recordedBy} 新增</div>
+                        <div class="text-muted small mt-1">紀錄者：${debt.recordedBy}</div>
                     `;
                     historyList.appendChild(li);
                 });
             }
 
-            // ===== 渲染自動抵銷結算 =====
+            // ===== 渲染自動抵銷結算表格 =====
             let creditors = [];
             let debtors = [];
             for (let user in balances) {
@@ -256,7 +318,7 @@
                 else if (balances[user] < 0) debtors.push({ user, amount: Math.abs(balances[user]) });
             }
 
-            let settlements = [];
+            let settlementData = [];
             let i = 0, j = 0;
             while (i < creditors.length && j < debtors.length) {
                 let credit = creditors[i];
@@ -264,7 +326,7 @@
                 let settleAmount = Math.min(credit.amount, debt.amount);
                 
                 if(settleAmount > 0) {
-                    settlements.push(`<strong>${debt.user}</strong> 需給 <strong>${credit.user}</strong> $${settleAmount}`);
+                    settlementData.push({ debtor: debt.user, creditor: credit.user, amount: settleAmount });
                 }
                 
                 credit.amount -= settleAmount;
@@ -274,24 +336,34 @@
                 if (debt.amount === 0) j++;
             }
 
-            summaryList.innerHTML = '';
-            if (settlements.length === 0) {
-                summaryList.innerHTML = '<li class="list-group-item text-center text-success">目前大家互不相欠！</li>';
+            tbody.innerHTML = '';
+            if (settlementData.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="4" class="text-center text-success py-3 fw-bold fs-5">目前大家互不相欠，太棒了！</td></tr>';
             } else {
-                settlements.forEach(text => {
-                    const li = document.createElement('li');
-                    li.className = 'list-group-item text-center fs-5';
-                    li.innerHTML = text;
-                    summaryList.appendChild(li);
+                settlementData.forEach((item, index) => {
+                    const tr = document.createElement('tr');
+                    tr.innerHTML = `
+                        <td><strong>${item.debtor}</strong></td>
+                        <td><strong>${item.creditor}</strong></td>
+                        <td class="text-danger fw-bold fs-5">$${item.amount}</td>
+                        <td>
+                            <div class="input-group input-group-sm">
+                                <input type="number" class="form-control" id="repay-input-${index}" placeholder="輸入金額" max="${item.amount}">
+                                <button class="btn btn-outline-primary" onclick="processRepayment('${item.debtor}', '${item.creditor}', 'partial', ${item.amount}, ${index})">部分還款</button>
+                                <button class="btn btn-success" onclick="processRepayment('${item.debtor}', '${item.creditor}', 'all', ${item.amount}, ${index})">一鍵還清</button>
+                            </div>
+                        </td>
+                    `;
+                    tbody.appendChild(tr);
                 });
             }
         } catch (e) {
-            summaryList.innerHTML = '<li class="list-group-item text-center text-danger">讀取失敗，請確認資料庫權限。</li>';
+            tbody.innerHTML = '<tr><td colspan="4" class="text-center text-danger py-3">讀取失敗，請確認資料庫權限。</td></tr>';
             historyList.innerHTML = '<li class="list-group-item text-center text-danger">讀取明細失敗。</li>';
         }
     }
     document.getElementById('view-debt-tab').addEventListener('click', loadDebts);
-    document.getElementById('history-debt-tab').addEventListener('click', loadDebts); // 點擊詳細紀錄時也更新
+    document.getElementById('history-debt-tab').addEventListener('click', loadDebts);
 
     document.getElementById('submit-food-btn').addEventListener('click', async () => {
         const food = document.getElementById('food-name').value.trim();
