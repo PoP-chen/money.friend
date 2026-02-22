@@ -12,31 +12,37 @@
         .card { box-shadow: 0 4px 6px rgba(0,0,0,0.1); border-radius: 12px; }
         #app-container { max-width: 800px; margin: 0 auto; padding: 20px; }
         #calendar { background: white; padding: 15px; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
-        /* 這裡修正了手機版無法滑動的問題！ */
-        .table-responsive { border-radius: 8px; overflow-x: auto; -webkit-overflow-scrolling: touch; }
+        
+        /* 針對手機版滑動的終極解決方案 */
+        .custom-table-container {
+            width: 100%;
+            overflow-x: auto;
+            -webkit-overflow-scrolling: touch; 
+            border: 1px solid #dee2e6;
+            border-radius: 8px;
+            background-color: white;
+        }
+        .custom-table-container table {
+            min-width: 650px; 
+            margin-bottom: 0;
+        }
     </style>
 </head>
 <body>
 
 <div id="app-container">
-    <div id="login-section" class="card p-5 mt-5">
-        <h2 class="text-center mb-4">系統登入</h2>
-        <div class="mb-3">
-            <label class="form-label">帳號</label>
-            <input type="text" id="login-username" class="form-control" placeholder="輸入帳號">
-        </div>
-        <div class="mb-3">
-            <label class="form-label">密碼</label>
-            <input type="password" id="login-password" class="form-control" placeholder="輸入密碼">
-        </div>
-        <button id="login-btn" class="btn btn-primary w-100">登入</button>
-        <p id="login-error" class="text-danger mt-3 text-center hidden">帳號或密碼錯誤！</p>
-    </div>
-
-    <div id="main-section" class="hidden">
-        <div class="d-flex justify-content-between align-items-center mb-4 mt-3">
-            <h3 id="welcome-msg">歡迎！</h3>
-            <button id="logout-btn" class="btn btn-outline-danger btn-sm">登出</button>
+    <div id="main-section">
+        <div class="d-flex justify-content-between align-items-center mb-4 mt-2">
+            <h3 class="mb-0 text-primary fw-bold">好友記帳</h3>
+            <div class="d-flex align-items-center bg-white px-3 py-2 rounded shadow-sm">
+                <label class="text-nowrap me-2 mb-0 text-muted small">操作者：</label>
+                <select id="current-user-select" class="form-select form-select-sm w-auto fw-bold border-0 shadow-none p-0" style="cursor: pointer; outline: none;">
+                    <option value="minn0213">minn0213</option>
+                    <option value="topyoung0610">topyoung0610</option>
+                    <option value="youyouyou.c">youyouyou.c</option>
+                    <option value="iamfrank">iamfrank</option>
+                </select>
+            </div>
         </div>
 
         <ul class="nav nav-tabs mb-4" id="myTab" role="tablist">
@@ -66,6 +72,7 @@
                         <option value="minn0213">minn0213</option>
                         <option value="topyoung0610">topyoung0610</option>
                         <option value="youyouyou.c">youyouyou.c</option>
+                        <option value="iamfrank">iamfrank</option>
                     </select>
                 </div>
                 <div class="mb-3">
@@ -74,6 +81,7 @@
                         <option value="minn0213">minn0213</option>
                         <option value="topyoung0610">topyoung0610</option>
                         <option value="youyouyou.c" selected>youyouyou.c</option>
+                        <option value="iamfrank">iamfrank</option>
                     </select>
                 </div>
                 <div class="mb-3">
@@ -89,15 +97,15 @@
 
             <div class="tab-pane fade card p-4" id="view-debt" role="tabpanel">
                 <h4>目前結算結果與還款</h4>
-                <p class="text-muted">系統已幫你們自動抵銷債務，可以直接在這裡操作還錢（表格可左右滑動）：</p>
-                <div class="table-responsive border">
-                    <table class="table table-hover align-middle mb-0">
+                <p class="text-muted">系統已幫你們自動抵銷債務，可以直接在這裡操作還錢（向左滑動查看按鈕 👉）：</p>
+                <div class="custom-table-container">
+                    <table class="table table-hover align-middle">
                         <thead class="table-light">
                             <tr>
-                                <th style="white-space: nowrap;">誰欠錢 (債務人)</th>
-                                <th style="white-space: nowrap;">該給誰 (債主)</th>
-                                <th style="white-space: nowrap;">應還金額</th>
-                                <th style="min-width: 260px;">還款操作</th>
+                                <th>誰欠錢 (債務人)</th>
+                                <th>該給誰 (債主)</th>
+                                <th>應還金額</th>
+                                <th>還款操作</th>
                             </tr>
                         </thead>
                         <tbody id="debt-summary-tbody">
@@ -156,40 +164,13 @@
     const app = initializeApp(firebaseConfig);
     const db = getFirestore(app);
 
-    const users = {
-        "minn0213": "0213",
-        "topyoung0610": "0610",
-        "youyouyou.c": "0515"
-    };
-    
-    let currentUser = null;
+    // 取得當前的操作者
+    let currentUser = document.getElementById('current-user-select').value;
+    document.getElementById('current-user-select').addEventListener('change', (e) => {
+        currentUser = e.target.value;
+    });
+
     let calendar; 
-
-    document.getElementById('login-btn').addEventListener('click', () => {
-        const user = document.getElementById('login-username').value.trim();
-        const pass = document.getElementById('login-password').value.trim();
-        
-        if (users[user] && users[user] === pass) {
-            currentUser = user;
-            document.getElementById('login-section').classList.add('hidden');
-            document.getElementById('main-section').classList.remove('hidden');
-            document.getElementById('welcome-msg').innerText = `歡迎，${user}！`;
-            
-            loadDebts();
-            initCalendar();
-        } else {
-            document.getElementById('login-error').classList.remove('hidden');
-        }
-    });
-
-    document.getElementById('logout-btn').addEventListener('click', () => {
-        currentUser = null;
-        document.getElementById('main-section').classList.add('hidden');
-        document.getElementById('login-section').classList.remove('hidden');
-        document.getElementById('login-username').value = '';
-        document.getElementById('login-password').value = '';
-        document.getElementById('login-error').classList.add('hidden');
-    });
 
     document.getElementById('submit-debt-btn').addEventListener('click', async () => {
         const payer = document.getElementById('debt-payer').value;
@@ -212,7 +193,7 @@
             });
             alert('欠款紀錄成功！');
             document.getElementById('debt-amount').value = '';
-            document.getElementById('debt-date').value = '';
+            // 不清空日期，方便連續記帳
             loadDebts(); 
         } catch (e) {
             console.error("寫入錯誤: ", e);
@@ -268,17 +249,17 @@
         
         try {
             const querySnapshot = await getDocs(collection(db, "debts"));
-            let balances = { "minn0213": 0, "topyoung0610": 0, "youyouyou.c": 0 };
+            // 加入 iamfrank 到初始化餘額中
+            let balances = { "minn0213": 0, "topyoung0610": 0, "youyouyou.c": 0, "iamfrank": 0 };
             let allDebts = []; 
             
             querySnapshot.forEach((doc) => {
                 const data = doc.data();
                 allDebts.push(data); 
                 
-                if(balances[data.payer] !== undefined && balances[data.borrower] !== undefined){
-                    balances[data.payer] += data.amount; 
-                    balances[data.borrower] -= data.amount; 
-                }
+                // 確保舊資料即使沒有該使用者也不會出錯
+                if(balances[data.payer] !== undefined) balances[data.payer] += data.amount; 
+                if(balances[data.borrower] !== undefined) balances[data.borrower] -= data.amount; 
             });
 
             allDebts.sort((a, b) => new Date(b.datetime) - new Date(a.datetime));
@@ -342,7 +323,7 @@
                         <td style="white-space: nowrap;"><strong>${item.creditor}</strong></td>
                         <td class="text-danger fw-bold fs-5" style="white-space: nowrap;">$${item.amount}</td>
                         <td>
-                            <div class="input-group input-group-sm flex-nowrap" style="min-width: 260px;">
+                            <div class="input-group input-group-sm flex-nowrap" style="min-width: 250px;">
                                 <input type="number" class="form-control" id="repay-input-${index}" placeholder="輸入金額" max="${item.amount}">
                                 <button class="btn btn-outline-primary" onclick="processRepayment('${item.debtor}', '${item.creditor}', 'partial', ${item.amount}, ${index})">部分還款</button>
                                 <button class="btn btn-success" onclick="processRepayment('${item.debtor}', '${item.creditor}', 'all', ${item.amount}, ${index})">一鍵還清</button>
@@ -357,6 +338,8 @@
             historyList.innerHTML = '<li class="list-group-item text-center text-danger">讀取明細失敗。</li>';
         }
     }
+    
+    // 監聽分頁切換，隨時更新資料
     document.getElementById('view-debt-tab').addEventListener('click', loadDebts);
     document.getElementById('history-debt-tab').addEventListener('click', loadDebts);
 
@@ -371,13 +354,12 @@
 
         try {
             await addDoc(collection(db, "foods"), {
-                user: currentUser,
+                user: currentUser, // 這裡會抓取右上角選單目前選的人
                 food: food,
                 datetime: time
             });
             alert('飲食紀錄成功！');
             document.getElementById('food-name').value = '';
-            document.getElementById('food-time').value = '';
             loadFoodsToCalendar(); 
         } catch (e) {
             console.error("寫入錯誤: ", e);
@@ -428,12 +410,16 @@
         }
     });
 
+    // 因為去除了登入，網頁一載入就直接讀取資料與日曆
     window.onload = () => {
         const now = new Date();
         now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
         const localNow = now.toISOString().slice(0,16);
         document.getElementById('debt-date').value = localNow;
         document.getElementById('food-time').value = localNow;
+        
+        loadDebts();
+        initCalendar();
     };
 </script>
 </body>
