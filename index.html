@@ -2,136 +2,195 @@
 <html lang="zh-TW">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>好友記帳與飲食日曆</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css">
     <link href="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.8/index.global.min.css" rel="stylesheet">
+    
     <style>
-        body { background-color: #f8f9fa; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
-        .hidden { display: none !important; }
-        .card { box-shadow: 0 4px 6px rgba(0,0,0,0.1); border-radius: 12px; }
-        #app-container { max-width: 800px; margin: 0 auto; padding: 20px; }
-        #calendar { background: white; padding: 15px; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
+        /* 手機 App 風格基礎設定 */
+        body { 
+            background-color: #f0f2f5; 
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; 
+            padding-top: 60px; /* 留給頂部標題 */
+            padding-bottom: 80px; /* 留給底部導航列 */
+            -webkit-tap-highlight-color: transparent;
+        }
         
-        /* 針對手機版滑動的終極解決方案 */
+        /* 頂部固定標題列 */
+        .app-header {
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 60px;
+            background: #ffffff;
+            color: #0d6efd;
+            z-index: 1030;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 1.25rem; font-weight: 700;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+        }
+
+        /* 底部固定導航列 */
+        .bottom-nav {
+            position: fixed;
+            bottom: 0; left: 0; width: 100%; height: 70px;
+            background: #ffffff;
+            z-index: 1030;
+            display: flex; justify-content: space-around; align-items: center;
+            box-shadow: 0 -1px 5px rgba(0,0,0,0.05);
+            padding-bottom: env(safe-area-inset-bottom); /* 適配 iPhone 底部小白條 */
+        }
+        .nav-item-btn {
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            color: #6c757d; background: none; border: none; padding: 5px; width: 100%; height: 100%;
+            text-decoration: none; font-size: 0.75rem;
+        }
+        .nav-item-btn.active { color: #0d6efd; font-weight: bold; }
+        .nav-item-btn i { font-size: 1.5rem; margin-bottom: 2px; }
+
+        /* 卡片與輸入框最佳化 */
+        .tab-content { padding: 15px; max-width: 600px; margin: 0 auto; }
+        .card { border: none; box-shadow: 0 2px 8px rgba(0,0,0,0.05); border-radius: 16px; padding: 20px !important; }
+        .form-control, .form-select { 
+            height: 50px; /* 加大高度方便點擊 */
+            font-size: 16px !important; /* 強制 16px 防止 iOS Safari 自動放大畫面 */
+            border-radius: 10px;
+        }
+        .btn { height: 50px; font-size: 1.1rem; border-radius: 10px; font-weight: bold; }
+
+        /* 表格滑動終極解決方案 */
         .custom-table-container {
-            width: 100%;
-            overflow-x: auto;
-            -webkit-overflow-scrolling: touch; 
-            border: 1px solid #dee2e6;
-            border-radius: 8px;
-            background-color: white;
+            width: 100%; overflow-x: auto; -webkit-overflow-scrolling: touch; 
+            border: 1px solid #dee2e6; border-radius: 10px; background-color: white;
         }
-        .custom-table-container table {
-            min-width: 650px; 
-            margin-bottom: 0;
-        }
+        .custom-table-container table { min-width: 650px; margin-bottom: 0; }
+        
+        /* 歷史紀錄清單美化 */
+        .list-group-item { border-left: none; border-right: none; padding: 15px 10px; }
+        .list-group-item:first-child { border-top: none; }
+        
+        /* 日曆手機版微調 */
+        #calendar { background: white; padding: 10px; border-radius: 16px; font-size: 0.9em; }
+        .fc .fc-toolbar { flex-wrap: wrap; gap: 8px; justify-content: space-between; }
+        .fc .fc-toolbar-title { font-size: 1.2em !important; }
+        .fc .fc-button { padding: 0.4em 0.6em; }
     </style>
 </head>
 <body>
 
-<div id="app-container">
-    <div id="main-section">
-        <div class="mb-4 mt-2 text-center">
-            <h3 class="mb-0 text-primary fw-bold">好友記帳與飲食日曆</h3>
+<div class="app-header">
+    <i class="bi bi-wallet2 me-2"></i> 好友記帳與日曆
+</div>
+
+<div class="bottom-nav nav" role="tablist">
+    <button class="nav-item-btn active" id="add-debt-tab" data-bs-toggle="tab" data-bs-target="#add-debt" type="button" role="tab">
+        <i class="bi bi-pencil-square"></i><span>記帳</span>
+    </button>
+    <button class="nav-item-btn" id="view-debt-tab" data-bs-toggle="tab" data-bs-target="#view-debt" type="button" role="tab">
+        <i class="bi bi-cash-coin"></i><span>結算</span>
+    </button>
+    <button class="nav-item-btn" id="history-debt-tab" data-bs-toggle="tab" data-bs-target="#history-debt" type="button" role="tab">
+        <i class="bi bi-receipt"></i><span>明細</span>
+    </button>
+    <button class="nav-item-btn" id="add-food-tab" data-bs-toggle="tab" data-bs-target="#add-food" type="button" role="tab">
+        <i class="bi bi-cup-hot"></i><span>紀錄飲食</span>
+    </button>
+    <button class="nav-item-btn" id="calendar-tab" data-bs-toggle="tab" data-bs-target="#food-calendar" type="button" role="tab">
+        <i class="bi bi-calendar-check"></i><span>日曆</span>
+    </button>
+</div>
+
+<div class="tab-content">
+    <div class="tab-pane fade show active" id="add-debt" role="tabpanel">
+        <div class="card">
+            <h4 class="mb-4 fw-bold">新增一筆欠款</h4>
+            <div class="mb-3">
+                <label class="form-label text-muted small fw-bold">誰先代墊的？(債主)</label>
+                <select id="debt-payer" class="form-select border-primary shadow-sm">
+                    <option value="minn0213">minn0213</option>
+                    <option value="topyoung0610">topyoung0610</option>
+                    <option value="youyouyou.c">youyouyou.c</option>
+                    <option value="iamfrank">iamfrank</option>
+                </select>
+            </div>
+            <div class="mb-3">
+                <label class="form-label text-muted small fw-bold">誰欠錢？(債務人)</label>
+                <select id="debt-borrower" class="form-select border-danger shadow-sm">
+                    <option value="minn0213">minn0213</option>
+                    <option value="topyoung0610">topyoung0610</option>
+                    <option value="youyouyou.c" selected>youyouyou.c</option>
+                    <option value="iamfrank">iamfrank</option>
+                </select>
+            </div>
+            <div class="mb-3">
+                <label class="form-label text-muted small fw-bold">金額</label>
+                <div class="input-group">
+                    <span class="input-group-text bg-white border-end-0 fs-5">$</span>
+                    <input type="number" id="debt-amount" class="form-control border-start-0 ps-0 fs-4 fw-bold text-primary" placeholder="0">
+                </div>
+            </div>
+            <div class="mb-4">
+                <label class="form-label text-muted small fw-bold">精確日期與時間</label>
+                <input type="datetime-local" id="debt-date" class="form-control bg-light">
+            </div>
+            <button id="submit-debt-btn" class="btn btn-primary w-100 shadow-sm"><i class="bi bi-check-circle me-1"></i> 儲存紀錄</button>
         </div>
+    </div>
 
-        <ul class="nav nav-tabs mb-4" id="myTab" role="tablist">
-            <li class="nav-item" role="presentation">
-                <button class="nav-link active" id="add-debt-tab" data-bs-toggle="tab" data-bs-target="#add-debt" type="button" role="tab">新增欠款</button>
-            </li>
-            <li class="nav-item" role="presentation">
-                <button class="nav-link" id="view-debt-tab" data-bs-toggle="tab" data-bs-target="#view-debt" type="button" role="tab">欠款總覽(還款)</button>
-            </li>
-            <li class="nav-item" role="presentation">
-                <button class="nav-link" id="history-debt-tab" data-bs-toggle="tab" data-bs-target="#history-debt" type="button" role="tab">欠款詳細紀錄</button>
-            </li>
-            <li class="nav-item" role="presentation">
-                <button class="nav-link" id="add-food-tab" data-bs-toggle="tab" data-bs-target="#add-food" type="button" role="tab">今日吃什麼</button>
-            </li>
-            <li class="nav-item" role="presentation">
-                <button class="nav-link" id="calendar-tab" data-bs-toggle="tab" data-bs-target="#food-calendar" type="button" role="tab">飲食日曆</button>
-            </li>
-        </ul>
-
-        <div class="tab-content">
-            <div class="tab-pane fade show active card p-4" id="add-debt" role="tabpanel">
-                <h4>新增一筆欠款</h4>
-                <div class="mb-3">
-                    <label class="form-label">誰先代墊的？(債主)</label>
-                    <select id="debt-payer" class="form-select">
-                        <option value="minn0213">minn0213</option>
-                        <option value="topyoung0610">topyoung0610</option>
-                        <option value="youyouyou.c">youyouyou.c</option>
-                        <option value="iamfrank">iamfrank</option>
-                    </select>
-                </div>
-                <div class="mb-3">
-                    <label class="form-label">誰欠錢？(債務人)</label>
-                    <select id="debt-borrower" class="form-select">
-                        <option value="minn0213">minn0213</option>
-                        <option value="topyoung0610">topyoung0610</option>
-                        <option value="youyouyou.c" selected>youyouyou.c</option>
-                        <option value="iamfrank">iamfrank</option>
-                    </select>
-                </div>
-                <div class="mb-3">
-                    <label class="form-label">金額</label>
-                    <input type="number" id="debt-amount" class="form-control" placeholder="輸入金額">
-                </div>
-                <div class="mb-3">
-                    <label class="form-label">精確日期與時間</label>
-                    <input type="datetime-local" id="debt-date" class="form-control">
-                </div>
-                <button id="submit-debt-btn" class="btn btn-success w-100">送出紀錄</button>
+    <div class="tab-pane fade" id="view-debt" role="tabpanel">
+        <div class="card">
+            <h4 class="mb-3 fw-bold">最終結算結果</h4>
+            <div class="alert alert-primary py-2 px-3 small rounded-3 mb-3">
+                <i class="bi bi-info-circle me-1"></i> 表格可向左滑動操作還款 👉
             </div>
-
-            <div class="tab-pane fade card p-4" id="view-debt" role="tabpanel">
-                <h4>目前結算結果與還款</h4>
-                <p class="text-muted">目前的欠款都是「一對一獨立計算」，可以直接在這裡操作還錢（向左滑動查看按鈕 👉）：</p>
-                <div class="custom-table-container">
-                    <table class="table table-hover align-middle">
-                        <thead class="table-light">
-                            <tr>
-                                <th>誰欠錢 (債務人)</th>
-                                <th>該給誰 (債主)</th>
-                                <th>應還金額</th>
-                                <th>還款操作</th>
-                            </tr>
-                        </thead>
-                        <tbody id="debt-summary-tbody">
-                            <tr>
-                                <td colspan="4" class="text-center py-3">正在計算中...</td>
-                            </tr>
-                        </tbody>
-                    </table>
-                </div>
+            <div class="custom-table-container shadow-sm">
+                <table class="table table-hover align-middle">
+                    <thead class="table-light">
+                        <tr>
+                            <th>誰欠錢 (債務人)</th>
+                            <th>該給誰 (債主)</th>
+                            <th>應還金額</th>
+                            <th>還款操作</th>
+                        </tr>
+                    </thead>
+                    <tbody id="debt-summary-tbody">
+                        <tr>
+                            <td colspan="4" class="text-center py-4 text-muted">正在計算中...</td>
+                        </tr>
+                    </tbody>
+                </table>
             </div>
+        </div>
+    </div>
 
-            <div class="tab-pane fade card p-4" id="history-debt" role="tabpanel">
-                <h4>所有欠款明細</h4>
-                <p class="text-muted">這裡顯示大家輸入的每一筆原始紀錄（由新到舊排）：</p>
-                <ul id="debt-history-list" class="list-group">
-                    <li class="list-group-item text-center">正在讀取中...</li>
-                </ul>
-            </div>
+    <div class="tab-pane fade" id="history-debt" role="tabpanel">
+        <div class="card p-0 overflow-hidden">
+            <h4 class="m-4 mb-2 fw-bold">所有欠款明細</h4>
+            <p class="px-4 text-muted small">最新紀錄在最上方：</p>
+            <ul id="debt-history-list" class="list-group list-group-flush mb-2">
+                <li class="list-group-item text-center py-4 text-muted">正在讀取中...</li>
+            </ul>
+        </div>
+    </div>
 
-            <div class="tab-pane fade card p-4" id="add-food" role="tabpanel">
-                <h4>紀錄飲食</h4>
-                <div class="mb-3">
-                    <label class="form-label">吃了什麼？</label>
-                    <input type="text" id="food-name" class="form-control" placeholder="例如：麥當勞大麥克">
-                </div>
-                <div class="mb-3">
-                    <label class="form-label">日期</label>
-                    <input type="date" id="food-date" class="form-control">
-                </div>
-                <button id="submit-food-btn" class="btn btn-warning w-100">新增飲食紀錄</button>
+    <div class="tab-pane fade" id="add-food" role="tabpanel">
+        <div class="card">
+            <h4 class="mb-4 fw-bold">紀錄飲食</h4>
+            <div class="mb-4">
+                <label class="form-label text-muted small fw-bold">今天吃了哪家？</label>
+                <input type="text" id="food-name" class="form-control border-warning shadow-sm" placeholder="例如：麥當勞大麥克">
             </div>
+            <div class="mb-4">
+                <label class="form-label text-muted small fw-bold">日期</label>
+                <input type="date" id="food-date" class="form-control bg-light">
+            </div>
+            <button id="submit-food-btn" class="btn btn-warning w-100 shadow-sm text-dark"><i class="bi bi-send-fill me-1"></i> 新增飲食紀錄</button>
+        </div>
+    </div>
 
-            <div class="tab-pane fade" id="food-calendar" role="tabpanel">
-                <div id="calendar"></div>
-            </div>
+    <div class="tab-pane fade" id="food-calendar" role="tabpanel">
+        <div class="card p-2 shadow-sm">
+            <div id="calendar"></div>
         </div>
     </div>
 </div>
@@ -156,6 +215,7 @@
     const db = getFirestore(app);
     let calendar; 
 
+    // 新增欠款
     document.getElementById('submit-debt-btn').addEventListener('click', async () => {
         const payer = document.getElementById('debt-payer').value;
         const borrower = document.getElementById('debt-borrower').value;
@@ -184,6 +244,7 @@
         }
     });
 
+    // 處理還款
     window.processRepayment = async function(debtor, creditor, amountType, maxAmount, index) {
         let repayAmount = 0;
         
@@ -223,12 +284,13 @@
         }
     };
 
+    // 讀取欠款資料與計算
     async function loadDebts() {
         const tbody = document.getElementById('debt-summary-tbody');
         const historyList = document.getElementById('debt-history-list'); 
         
-        tbody.innerHTML = '<tr><td colspan="4" class="text-center py-3">正在計算中...</td></tr>';
-        historyList.innerHTML = '<li class="list-group-item text-center">正在讀取中...</li>';
+        tbody.innerHTML = '<tr><td colspan="4" class="text-center py-4 text-muted"><div class="spinner-border spinner-border-sm me-2" role="status"></div>正在計算中...</td></tr>';
+        historyList.innerHTML = '<li class="list-group-item text-center py-4 text-muted"><div class="spinner-border spinner-border-sm me-2" role="status"></div>正在讀取中...</li>';
         
         try {
             const querySnapshot = await getDocs(collection(db, "debts"));
@@ -255,22 +317,25 @@
             allDebts.sort((a, b) => new Date(b.datetime) - new Date(a.datetime));
             historyList.innerHTML = '';
             if (allDebts.length === 0) {
-                historyList.innerHTML = '<li class="list-group-item text-center text-muted">目前沒有任何欠款紀錄。</li>';
+                historyList.innerHTML = '<li class="list-group-item text-center text-muted py-4">目前沒有任何欠款紀錄。</li>';
             } else {
                 allDebts.forEach(debt => {
                     const li = document.createElement('li');
-                    li.className = 'list-group-item';
+                    li.className = 'list-group-item d-flex justify-content-between align-items-center';
                     
                     const isRepayment = debt.recordedBy && debt.recordedBy.includes("系統還款操作");
-                    const actionText = isRepayment ? "還款給" : "幫";
+                    const actionText = isRepayment ? "還給" : "幫墊";
                     const actionColor = isRepayment ? "text-success" : "text-danger";
-                    const wordColor = isRepayment ? "text-success fw-bold" : "";
+                    const icon = isRepayment ? `<i class="bi bi-arrow-return-right text-success me-1"></i>` : `<i class="bi bi-cash text-danger me-1"></i>`;
 
                     li.innerHTML = `
-                        <div class="d-flex justify-content-between align-items-center">
-                            <span class="${wordColor}"><strong><span class="text-primary">${debt.payer}</span> ${actionText} <span class="${actionColor}">${debt.borrower}</span> $${debt.amount}</strong></span>
-                            <span class="badge bg-secondary">${debt.datetime.replace('T', ' ')}</span>
+                        <div>
+                            <div class="fw-bold mb-1" style="font-size: 0.95rem;">
+                                ${icon} <span class="text-primary">${debt.payer}</span> ${actionText} <span class="${actionColor}">${debt.borrower}</span>
+                            </div>
+                            <div class="text-muted" style="font-size: 0.75rem;">${debt.datetime.replace('T', ' ')}</div>
                         </div>
+                        <div class="fw-bold fs-5 ${actionColor}">$${debt.amount}</div>
                     `;
                     historyList.appendChild(li);
                 });
@@ -295,19 +360,19 @@
 
             tbody.innerHTML = '';
             if (settlementData.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="4" class="text-center text-success py-3 fw-bold fs-5">目前大家互不相欠，太棒了！</td></tr>';
+                tbody.innerHTML = '<tr><td colspan="4" class="text-center text-success py-4 fw-bold fs-5"><i class="bi bi-emoji-smile me-2"></i>目前大家互不相欠，太棒了！</td></tr>';
             } else {
                 settlementData.forEach((item, index) => {
                     const tr = document.createElement('tr');
                     tr.innerHTML = `
-                        <td style="white-space: nowrap;"><strong>${item.debtor}</strong></td>
-                        <td style="white-space: nowrap;"><strong>${item.creditor}</strong></td>
+                        <td style="white-space: nowrap;"><span class="badge bg-light text-dark border p-2">${item.debtor}</span></td>
+                        <td style="white-space: nowrap;"><span class="badge bg-light text-primary border p-2">${item.creditor}</span></td>
                         <td class="text-danger fw-bold fs-5" style="white-space: nowrap;">$${item.amount}</td>
                         <td>
-                            <div class="input-group input-group-sm flex-nowrap" style="min-width: 250px;">
-                                <input type="number" class="form-control" id="repay-input-${index}" placeholder="輸入金額" max="${item.amount}">
-                                <button class="btn btn-outline-primary" onclick="processRepayment('${item.debtor}', '${item.creditor}', 'partial', ${item.amount}, ${index})">部分還款</button>
-                                <button class="btn btn-success" onclick="processRepayment('${item.debtor}', '${item.creditor}', 'all', ${item.amount}, ${index})">一鍵還清</button>
+                            <div class="input-group flex-nowrap" style="min-width: 250px;">
+                                <input type="number" class="form-control form-control-sm border-primary" id="repay-input-${index}" placeholder="金額" max="${item.amount}">
+                                <button class="btn btn-outline-primary px-2" onclick="processRepayment('${item.debtor}', '${item.creditor}', 'partial', ${item.amount}, ${index})">部分還</button>
+                                <button class="btn btn-success px-2" onclick="processRepayment('${item.debtor}', '${item.creditor}', 'all', ${item.amount}, ${index})">全還清</button>
                             </div>
                         </td>
                     `;
@@ -315,18 +380,18 @@
                 });
             }
         } catch (e) {
-            tbody.innerHTML = '<tr><td colspan="4" class="text-center text-danger py-3">讀取失敗，請確認資料庫權限。</td></tr>';
-            historyList.innerHTML = '<li class="list-group-item text-center text-danger">讀取明細失敗。</li>';
+            tbody.innerHTML = '<tr><td colspan="4" class="text-center text-danger py-4">讀取失敗，請確認網路或資料庫權限。</td></tr>';
+            historyList.innerHTML = '<li class="list-group-item text-center text-danger py-4">讀取明細失敗。</li>';
         }
     }
     
+    // 點擊底部按鈕時更新資料
     document.getElementById('view-debt-tab').addEventListener('click', loadDebts);
     document.getElementById('history-debt-tab').addEventListener('click', loadDebts);
 
     // 新增飲食紀錄
     document.getElementById('submit-food-btn').addEventListener('click', async () => {
         const food = document.getElementById('food-name').value.trim();
-        // 抓取新的純日期欄位
         const date = document.getElementById('food-date').value;
 
         if (!food || !date) {
@@ -337,7 +402,7 @@
         try {
             await addDoc(collection(db, "foods"), {
                 food: food,
-                date: date // 存入純日期
+                date: date 
             });
             alert('飲食紀錄成功！');
             document.getElementById('food-name').value = '';
@@ -354,11 +419,13 @@
             calendar = new FullCalendar.Calendar(calendarEl, {
                 initialView: 'dayGridMonth',
                 locale: 'zh-tw',
+                contentHeight: 'auto', // 讓高度自動適應手機
                 headerToolbar: {
-                    left: 'prev,next today',
+                    left: 'prev,next',
                     center: 'title',
-                    right: 'dayGridMonth,timeGridWeek,timeGridDay'
+                    right: 'today'
                 },
+                buttonText: { today: '今天' },
                 events: [] 
             });
             calendar.render();
@@ -374,10 +441,10 @@
                 const data = doc.data();
                 events.push({
                     title: data.food, 
-                    // 為了相容之前的舊資料，如果沒有 date 就抓 datetime
                     start: data.date || data.datetime, 
-                    // 這行是魔法：設定為 true 後，日曆上的時間就不會顯示了！
-                    allDay: true 
+                    allDay: true,
+                    color: '#ffc107', // 使用 Bootstrap 的警告黃色，比較有食物的感覺
+                    textColor: '#000'
                 });
             });
             calendar.removeAllEvents();
@@ -387,6 +454,7 @@
         }
     }
 
+    // 當點擊底部日曆按鈕時，重新渲染日曆避免破圖
     document.getElementById('calendar-tab').addEventListener('shown.bs.tab', () => {
         if (calendar) {
             calendar.render();
@@ -398,11 +466,9 @@
         const now = new Date();
         now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
         
-        // 欠款依然保留到「時和分」
         const localNow = now.toISOString().slice(0,16);
         document.getElementById('debt-date').value = localNow;
         
-        // 食物改成只保留到「日期」
         const localDate = now.toISOString().slice(0,10);
         document.getElementById('food-date').value = localDate;
         
