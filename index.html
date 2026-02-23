@@ -123,8 +123,8 @@
                     <input type="text" id="food-name" class="form-control" placeholder="例如：麥當勞大麥克">
                 </div>
                 <div class="mb-3">
-                    <label class="form-label">時間</label>
-                    <input type="datetime-local" id="food-time" class="form-control">
+                    <label class="form-label">日期</label>
+                    <input type="date" id="food-date" class="form-control">
                 </div>
                 <button id="submit-food-btn" class="btn btn-warning w-100">新增飲食紀錄</button>
             </div>
@@ -235,7 +235,6 @@
             const userList = ["minn0213", "topyoung0610", "youyouyou.c", "iamfrank"];
             let allDebts = []; 
             
-            // 建立一對一帳本矩陣
             let pairwise = {};
             userList.forEach(u1 => {
                 pairwise[u1] = {};
@@ -248,7 +247,6 @@
                 const data = doc.data();
                 allDebts.push(data); 
                 
-                // 債主 payer 幫 債務人 borrower 付錢 => borrower 欠 payer 錢
                 if(pairwise[data.payer] !== undefined && pairwise[data.borrower] !== undefined) {
                     pairwise[data.payer][data.borrower] += data.amount;
                 }
@@ -278,7 +276,6 @@
                 });
             }
 
-            // 計算一對一最終結算結果
             let settlementData = [];
             for (let i = 0; i < userList.length; i++) {
                 for (let j = i + 1; j < userList.length; j++) {
@@ -326,19 +323,21 @@
     document.getElementById('view-debt-tab').addEventListener('click', loadDebts);
     document.getElementById('history-debt-tab').addEventListener('click', loadDebts);
 
+    // 新增飲食紀錄
     document.getElementById('submit-food-btn').addEventListener('click', async () => {
         const food = document.getElementById('food-name').value.trim();
-        const time = document.getElementById('food-time').value;
+        // 抓取新的純日期欄位
+        const date = document.getElementById('food-date').value;
 
-        if (!food || !time) {
-            alert('請輸入食物名稱與時間！');
+        if (!food || !date) {
+            alert('請輸入食物名稱與日期！');
             return;
         }
 
         try {
             await addDoc(collection(db, "foods"), {
                 food: food,
-                datetime: time
+                date: date // 存入純日期
             });
             alert('飲食紀錄成功！');
             document.getElementById('food-name').value = '';
@@ -375,8 +374,10 @@
                 const data = doc.data();
                 events.push({
                     title: data.food, 
-                    start: data.datetime,
-                    allDay: false
+                    // 為了相容之前的舊資料，如果沒有 date 就抓 datetime
+                    start: data.date || data.datetime, 
+                    // 這行是魔法：設定為 true 後，日曆上的時間就不會顯示了！
+                    allDay: true 
                 });
             });
             calendar.removeAllEvents();
@@ -392,12 +393,18 @@
         }
     });
 
+    // 網頁一載入就直接讀取
     window.onload = () => {
         const now = new Date();
         now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
+        
+        // 欠款依然保留到「時和分」
         const localNow = now.toISOString().slice(0,16);
         document.getElementById('debt-date').value = localNow;
-        document.getElementById('food-time').value = localNow;
+        
+        // 食物改成只保留到「日期」
+        const localDate = now.toISOString().slice(0,10);
+        document.getElementById('food-date').value = localDate;
         
         loadDebts();
         initCalendar();
