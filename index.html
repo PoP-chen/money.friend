@@ -88,7 +88,7 @@
 
             <div class="tab-pane fade card p-4" id="view-debt" role="tabpanel">
                 <h4>目前結算結果與還款</h4>
-                <p class="text-muted">系統已幫你們自動抵銷債務，可以直接在這裡操作還錢（向左滑動查看按鈕 👉）：</p>
+                <p class="text-muted">目前的欠款都是「一對一獨立計算」，可以直接在這裡操作還錢（向左滑動查看按鈕 👉）：</p>
                 <div class="custom-table-container">
                     <table class="table table-hover align-middle">
                         <thead class="table-light">
@@ -156,7 +156,6 @@
     const db = getFirestore(app);
     let calendar; 
 
-    // 新增欠款
     document.getElementById('submit-debt-btn').addEventListener('click', async () => {
         const payer = document.getElementById('debt-payer').value;
         const borrower = document.getElementById('debt-borrower').value;
@@ -185,7 +184,6 @@
         }
     });
 
-    // 處理還款
     window.processRepayment = async function(debtor, creditor, amountType, maxAmount, index) {
         let repayAmount = 0;
         
@@ -225,7 +223,6 @@
         }
     };
 
-    // 讀取欠款資料與計算
     async function loadDebts() {
         const tbody = document.getElementById('debt-summary-tbody');
         const historyList = document.getElementById('debt-history-list'); 
@@ -235,19 +232,28 @@
         
         try {
             const querySnapshot = await getDocs(collection(db, "debts"));
-            // 包含 iamfrank 的初始餘額
-            let balances = { "minn0213": 0, "topyoung0610": 0, "youyouyou.c": 0, "iamfrank": 0 };
+            const userList = ["minn0213", "topyoung0610", "youyouyou.c", "iamfrank"];
             let allDebts = []; 
+            
+            // 建立一對一帳本矩陣
+            let pairwise = {};
+            userList.forEach(u1 => {
+                pairwise[u1] = {};
+                userList.forEach(u2 => {
+                    pairwise[u1][u2] = 0;
+                });
+            });
             
             querySnapshot.forEach((doc) => {
                 const data = doc.data();
                 allDebts.push(data); 
                 
-                if(balances[data.payer] !== undefined) balances[data.payer] += data.amount; 
-                if(balances[data.borrower] !== undefined) balances[data.borrower] -= data.amount; 
+                // 債主 payer 幫 債務人 borrower 付錢 => borrower 欠 payer 錢
+                if(pairwise[data.payer] !== undefined && pairwise[data.borrower] !== undefined) {
+                    pairwise[data.payer][data.borrower] += data.amount;
+                }
             });
 
-            // 渲染歷史紀錄
             allDebts.sort((a, b) => new Date(b.datetime) - new Date(a.datetime));
             historyList.innerHTML = '';
             if (allDebts.length === 0) {
@@ -272,30 +278,22 @@
                 });
             }
 
-            // 計算最終結算
-            let creditors = [];
-            let debtors = [];
-            for (let user in balances) {
-                if (balances[user] > 0) creditors.push({ user, amount: balances[user] });
-                else if (balances[user] < 0) debtors.push({ user, amount: Math.abs(balances[user]) });
-            }
-
+            // 計算一對一最終結算結果
             let settlementData = [];
-            let i = 0, j = 0;
-            while (i < creditors.length && j < debtors.length) {
-                let credit = creditors[i];
-                let debt = debtors[j];
-                let settleAmount = Math.min(credit.amount, debt.amount);
-                
-                if(settleAmount > 0) {
-                    settlementData.push({ debtor: debt.user, creditor: credit.user, amount: settleAmount });
+            for (let i = 0; i < userList.length; i++) {
+                for (let j = i + 1; j < userList.length; j++) {
+                    let u1 = userList[i];
+                    let u2 = userList[j];
+                    
+                    let u1_owes_u2 = pairwise[u2][u1]; 
+                    let u2_owes_u1 = pairwise[u1][u2]; 
+                    
+                    if (u1_owes_u2 > u2_owes_u1) {
+                        settlementData.push({ debtor: u1, creditor: u2, amount: u1_owes_u2 - u2_owes_u1 });
+                    } else if (u2_owes_u1 > u1_owes_u2) {
+                        settlementData.push({ debtor: u2, creditor: u1, amount: u2_owes_u1 - u1_owes_u2 });
+                    }
                 }
-                
-                credit.amount -= settleAmount;
-                debt.amount -= settleAmount;
-                
-                if (credit.amount === 0) i++;
-                if (debt.amount === 0) j++;
             }
 
             tbody.innerHTML = '';
@@ -328,7 +326,6 @@
     document.getElementById('view-debt-tab').addEventListener('click', loadDebts);
     document.getElementById('history-debt-tab').addEventListener('click', loadDebts);
 
-    // 新增飲食紀錄 (不區分誰記的)
     document.getElementById('submit-food-btn').addEventListener('click', async () => {
         const food = document.getElementById('food-name').value.trim();
         const time = document.getElementById('food-time').value;
@@ -352,7 +349,6 @@
         }
     });
 
-    // 初始化與載入日曆
     function initCalendar() {
         if (!calendar) {
             const calendarEl = document.getElementById('calendar');
@@ -378,7 +374,7 @@
             querySnapshot.forEach((doc) => {
                 const data = doc.data();
                 events.push({
-                    title: data.food, // 直接顯示食物名稱
+                    title: data.food, 
                     start: data.datetime,
                     allDay: false
                 });
@@ -396,7 +392,6 @@
         }
     });
 
-    // 網頁一載入就直接讀取
     window.onload = () => {
         const now = new Date();
         now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
