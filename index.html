@@ -13,8 +13,8 @@
         body { 
             background-color: #f0f2f5; 
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; 
-            padding-top: 60px; /* 留給頂部標題 */
-            padding-bottom: 90px; /* 留給底部導航列 */
+            padding-top: 60px; 
+            padding-bottom: 90px; 
             -webkit-tap-highlight-color: transparent;
         }
         
@@ -30,7 +30,7 @@
             box-shadow: 0 1px 3px rgba(0,0,0,0.05);
         }
 
-        /* 底部固定導航列 (已修復排版問題) */
+        /* 底部固定導航列 */
         .bottom-nav {
             position: fixed;
             bottom: 0; left: 0; width: 100%; 
@@ -38,43 +38,52 @@
             background: #ffffff;
             z-index: 1030;
             display: flex; 
-            flex-wrap: nowrap !important; /* 強制不換行，解決按鈕疊在一起的問題 */
+            flex-wrap: nowrap !important;
             justify-content: space-around; 
             align-items: center;
-            box-shadow: 0 -2px 10px rgba(0,0,0,0.08); /* 加深陰影 */
-            padding-bottom: env(safe-area-inset-bottom); /* 適配 iPhone 底部小白條 */
+            box-shadow: 0 -2px 10px rgba(0,0,0,0.08);
+            padding-bottom: env(safe-area-inset-bottom);
         }
         .nav-item-btn {
             display: flex; flex-direction: column; align-items: center; justify-content: center;
             color: #6c757d; background: none; border: none; padding: 10px 0; 
-            flex: 1; /* 讓 5 個按鈕完美平分寬度 */
+            flex: 1; 
             text-decoration: none; font-size: 0.75rem;
+            transition: all 0.2s ease;
         }
         .nav-item-btn.active { color: #0d6efd; font-weight: bold; }
         .nav-item-btn i { font-size: 1.5rem; margin-bottom: 2px; }
 
+        /* 頁面切換內容與動畫 (移植自吃什麼 App) */
+        .main-container { padding: 15px; max-width: 600px; margin: 0 auto; }
+        .tab-content { 
+            display: none; /* 預設全部隱藏 */
+            animation: fadeIn 0.3s ease; /* 加入淡入動畫 */
+        }
+        @keyframes fadeIn { 
+            from { opacity: 0; transform: translateY(5px); } 
+            to { opacity: 1; transform: translateY(0); } 
+        }
+
         /* 卡片與輸入框最佳化 */
-        .tab-content { padding: 15px; max-width: 600px; margin: 0 auto; }
         .card { border: none; box-shadow: 0 2px 8px rgba(0,0,0,0.05); border-radius: 16px; padding: 20px !important; }
         .form-control, .form-select { 
-            height: 50px; /* 加大高度方便點擊 */
-            font-size: 16px !important; /* 強制 16px 防止 iOS Safari 自動放大畫面 */
+            height: 50px; 
+            font-size: 16px !important; 
             border-radius: 10px;
         }
         .btn { height: 50px; font-size: 1.1rem; border-radius: 10px; font-weight: bold; }
 
-        /* 表格滑動終極解決方案 */
+        /* 表格與清單 */
         .custom-table-container {
             width: 100%; overflow-x: auto; -webkit-overflow-scrolling: touch; 
             border: 1px solid #dee2e6; border-radius: 10px; background-color: white;
         }
         .custom-table-container table { min-width: 650px; margin-bottom: 0; }
-        
-        /* 歷史紀錄清單美化 */
         .list-group-item { border-left: none; border-right: none; padding: 15px 10px; }
         .list-group-item:first-child { border-top: none; }
         
-        /* 日曆手機版微調 */
+        /* 日曆 */
         #calendar { background: white; padding: 10px; border-radius: 16px; font-size: 0.9em; }
         .fc .fc-toolbar { flex-wrap: wrap; gap: 8px; justify-content: space-between; }
         .fc .fc-toolbar-title { font-size: 1.2em !important; }
@@ -87,26 +96,27 @@
     <i class="bi bi-wallet2 me-2"></i> 好友記帳與日曆
 </div>
 
-<div class="bottom-nav nav" role="tablist">
-    <button class="nav-item-btn active" id="add-debt-tab" data-bs-toggle="tab" data-bs-target="#add-debt" type="button" role="tab">
+<div class="bottom-nav">
+    <button class="nav-item-btn active" id="btn-add-debt" onclick="switchTab('add-debt')">
         <i class="bi bi-pencil-square"></i><span>記帳</span>
     </button>
-    <button class="nav-item-btn" id="view-debt-tab" data-bs-toggle="tab" data-bs-target="#view-debt" type="button" role="tab">
+    <button class="nav-item-btn" id="btn-view-debt" onclick="switchTab('view-debt')">
         <i class="bi bi-cash-coin"></i><span>結算</span>
     </button>
-    <button class="nav-item-btn" id="history-debt-tab" data-bs-toggle="tab" data-bs-target="#history-debt" type="button" role="tab">
+    <button class="nav-item-btn" id="btn-history-debt" onclick="switchTab('history-debt')">
         <i class="bi bi-receipt"></i><span>明細</span>
     </button>
-    <button class="nav-item-btn" id="add-food-tab" data-bs-toggle="tab" data-bs-target="#add-food" type="button" role="tab">
+    <button class="nav-item-btn" id="btn-add-food" onclick="switchTab('add-food')">
         <i class="bi bi-cup-hot"></i><span>紀錄飲食</span>
     </button>
-    <button class="nav-item-btn" id="calendar-tab" data-bs-toggle="tab" data-bs-target="#food-calendar" type="button" role="tab">
+    <button class="nav-item-btn" id="btn-food-calendar" onclick="switchTab('food-calendar')">
         <i class="bi bi-calendar-check"></i><span>日曆</span>
     </button>
 </div>
 
-<div class="tab-content">
-    <div class="tab-pane fade show active" id="add-debt" role="tabpanel">
+<div class="main-container">
+    
+    <div id="add-debt" class="tab-content" style="display: block;">
         <div class="card">
             <h4 class="mb-4 fw-bold">新增一筆欠款</h4>
             <div class="mb-3">
@@ -142,7 +152,7 @@
         </div>
     </div>
 
-    <div class="tab-pane fade" id="view-debt" role="tabpanel">
+    <div id="view-debt" class="tab-content">
         <div class="card">
             <h4 class="mb-3 fw-bold">最終結算結果</h4>
             <div class="alert alert-primary py-2 px-3 small rounded-3 mb-3">
@@ -159,16 +169,14 @@
                         </tr>
                     </thead>
                     <tbody id="debt-summary-tbody">
-                        <tr>
-                            <td colspan="4" class="text-center py-4 text-muted">正在計算中...</td>
-                        </tr>
+                        <tr><td colspan="4" class="text-center py-4 text-muted">正在計算中...</td></tr>
                     </tbody>
                 </table>
             </div>
         </div>
     </div>
 
-    <div class="tab-pane fade" id="history-debt" role="tabpanel">
+    <div id="history-debt" class="tab-content">
         <div class="card p-0 overflow-hidden">
             <h4 class="m-4 mb-2 fw-bold">所有欠款明細</h4>
             <p class="px-4 text-muted small">最新紀錄在最上方：</p>
@@ -178,7 +186,7 @@
         </div>
     </div>
 
-    <div class="tab-pane fade" id="add-food" role="tabpanel">
+    <div id="add-food" class="tab-content">
         <div class="card">
             <h4 class="mb-4 fw-bold">紀錄飲食</h4>
             <div class="mb-4">
@@ -193,7 +201,7 @@
         </div>
     </div>
 
-    <div class="tab-pane fade" id="food-calendar" role="tabpanel">
+    <div id="food-calendar" class="tab-content">
         <div class="card p-2 shadow-sm">
             <div id="calendar"></div>
         </div>
@@ -219,6 +227,28 @@
     const app = initializeApp(firebaseConfig);
     const db = getFirestore(app);
     let calendar; 
+
+    // === 新增：純 JavaScript 頁面切換功能 ===
+    window.switchTab = function(targetTab) {
+        // 1. 定義所有的分頁 ID
+        const allTabs = ['add-debt', 'view-debt', 'history-debt', 'add-food', 'food-calendar'];
+        
+        // 2. 透過迴圈切換顯示與按鈕樣式
+        allTabs.forEach(tab => {
+            // 控制區塊顯示隱藏
+            document.getElementById(tab).style.display = (tab === targetTab) ? 'block' : 'none';
+            // 控制按鈕高亮狀態
+            document.getElementById('btn-' + tab).classList.toggle('active', tab === targetTab);
+        });
+
+        // 3. 處理切換時需要重新載入或渲染的動作
+        if (targetTab === 'view-debt' || targetTab === 'history-debt') {
+            loadDebts(); // 切換到結算或明細時，重新讀取資料
+        } else if (targetTab === 'food-calendar' && calendar) {
+            calendar.render(); // 切換到日曆時，重新渲染避免破圖
+        }
+    };
+    // =====================================
 
     // 新增欠款
     document.getElementById('submit-debt-btn').addEventListener('click', async () => {
@@ -252,7 +282,6 @@
     // 處理還款
     window.processRepayment = async function(debtor, creditor, amountType, maxAmount, index) {
         let repayAmount = 0;
-        
         if (amountType === 'all') {
             repayAmount = parseFloat(maxAmount);
         } else {
@@ -294,26 +323,22 @@
         const tbody = document.getElementById('debt-summary-tbody');
         const historyList = document.getElementById('debt-history-list'); 
         
-        tbody.innerHTML = '<tr><td colspan="4" class="text-center py-4 text-muted"><div class="spinner-border spinner-border-sm me-2" role="status"></div>正在計算中...</td></tr>';
-        historyList.innerHTML = '<li class="list-group-item text-center py-4 text-muted"><div class="spinner-border spinner-border-sm me-2" role="status"></div>正在讀取中...</li>';
+        tbody.innerHTML = '<tr><td colspan="4" class="text-center py-4 text-muted"><div class="spinner-border spinner-border-sm me-2"></div>正在計算中...</td></tr>';
+        historyList.innerHTML = '<li class="list-group-item text-center py-4 text-muted"><div class="spinner-border spinner-border-sm me-2"></div>正在讀取中...</li>';
         
         try {
             const querySnapshot = await getDocs(collection(db, "debts"));
             const userList = ["minn0213", "topyoung0610", "youyouyou.c", "iamfrank"];
             let allDebts = []; 
-            
             let pairwise = {};
             userList.forEach(u1 => {
                 pairwise[u1] = {};
-                userList.forEach(u2 => {
-                    pairwise[u1][u2] = 0;
-                });
+                userList.forEach(u2 => { pairwise[u1][u2] = 0; });
             });
             
             querySnapshot.forEach((doc) => {
                 const data = doc.data();
                 allDebts.push(data); 
-                
                 if(pairwise[data.payer] !== undefined && pairwise[data.borrower] !== undefined) {
                     pairwise[data.payer][data.borrower] += data.amount;
                 }
@@ -327,7 +352,6 @@
                 allDebts.forEach(debt => {
                     const li = document.createElement('li');
                     li.className = 'list-group-item d-flex justify-content-between align-items-center';
-                    
                     const isRepayment = debt.recordedBy && debt.recordedBy.includes("系統還款操作");
                     const actionText = isRepayment ? "還給" : "幫墊";
                     const actionColor = isRepayment ? "text-success" : "text-danger";
@@ -351,7 +375,6 @@
                 for (let j = i + 1; j < userList.length; j++) {
                     let u1 = userList[i];
                     let u2 = userList[j];
-                    
                     let u1_owes_u2 = pairwise[u2][u1]; 
                     let u2_owes_u1 = pairwise[u1][u2]; 
                     
@@ -389,10 +412,6 @@
             historyList.innerHTML = '<li class="list-group-item text-center text-danger py-4">讀取明細失敗。</li>';
         }
     }
-    
-    // 點擊底部按鈕時更新資料
-    document.getElementById('view-debt-tab').addEventListener('click', loadDebts);
-    document.getElementById('history-debt-tab').addEventListener('click', loadDebts);
 
     // 新增飲食紀錄
     document.getElementById('submit-food-btn').addEventListener('click', async () => {
@@ -424,7 +443,7 @@
             calendar = new FullCalendar.Calendar(calendarEl, {
                 initialView: 'dayGridMonth',
                 locale: 'zh-tw',
-                contentHeight: 'auto', // 讓高度自動適應手機
+                contentHeight: 'auto', 
                 headerToolbar: {
                     left: 'prev,next',
                     center: 'title',
@@ -448,7 +467,7 @@
                     title: data.food, 
                     start: data.date || data.datetime, 
                     allDay: true,
-                    color: '#ffc107', // 使用 Bootstrap 的警告黃色，比較有食物的感覺
+                    color: '#ffc107', 
                     textColor: '#000'
                 });
             });
@@ -458,13 +477,6 @@
             console.error("讀取日曆錯誤:", e);
         }
     }
-
-    // 當點擊底部日曆按鈕時，重新渲染日曆避免破圖
-    document.getElementById('calendar-tab').addEventListener('shown.bs.tab', () => {
-        if (calendar) {
-            calendar.render();
-        }
-    });
 
     // 網頁一載入就直接讀取
     window.onload = () => {
